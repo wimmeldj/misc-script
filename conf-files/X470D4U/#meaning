@@ -1,0 +1,13 @@
+# escaped file	chown	chmod	[HOOK];[HOOK]..
+etc%%default%%grub	root:root	644	echo "Remember to make swap file and set \"resume\" and \"resume_offset\" kernel params;
+etc%%default%%zfs	root:root	644
+etc%%fstab	root:root	644	echo	"If your swap file isn't /swap, then this needs modification";
+etc%%mkinitcpio.conf	root:root	644  echo "Run mkinitcpio -P to generate images in /boot for all preset kernels listed in /etc/mkinitcpio.d";
+etc%%pacman.conf
+etc%%systemd%%sleep.conf	root:root	644	echo "HibernateDelaySec set to 0 for instant hibernate when calling systemctl suspend-then-hibernate";
+etc%%systemd%%system.conf	root:root	644	echo "RuntimeWatchdogSec disabled";
+etc%%tmpfiles.d%%disable-usb-wake.conf	root:root	644  echo "Flips XHC0. Should be disabled\nContents of /proc/acpi/wakeup:"; cat /proc/acpi/wakeup;
+etc%%zfs%%zed.d%%zed.rc	root:root	600
+etc%%zfs%%zfs-list.cache%%hdd-mirror0	root:root	644
+etc%%zfs%%zfs-list.cache%%ssd-mirror0-E	root:root	644
+etc%%zfs%%zfs-list.cache%%ssd-raid0	root:root	644

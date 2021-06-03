@@ -1,0 +1,2 @@
+ssd-raid0	/ssd-raid0	on	on	off	on	on	off	on	off	-	none	-	-	-	-	-	-	-	-	-
+ssd-raid0/E	/ssd-raid0/E	on	on	off	on	on	off	on	off	ssd-raid0/E	prompt	-	-	-	-	-	-	-	-	home

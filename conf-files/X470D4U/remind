@@ -1,0 +1,6 @@
+track changes to etc files
+
+add() adds a file in /etc (anywhere) to track
+diff() display difference between tracked and current
+replace() replace current with tracked
+update() ^ vice versa
