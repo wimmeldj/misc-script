@@ -5,7 +5,7 @@
 #### ===========================================================================
 ####                                    sourcing
 
-BASE_DIR=$(dirname "$BASH_SOURCE[0]")
+BASE_DIR=$(dirname "${BASH_SOURCE[0]}")
 DEPS=(
     awk
      )
@@ -26,18 +26,19 @@ ZFS_BACKUPID="${NSPACE}-backup"
 # TODO allow non recursive? just accept a param splicing additional args?
 zfs-recursive-snap-ts() (
     set -e
-    local usage=$(cat <<EOF
+    local usage; usage=$(cat <<EOF
 Create a timestamped recursive snapshot of a filesystem. Prints name of snapshot
 created to stdin.
 
 Usage: ${FUNCNAME[0]} [-i] [-n CREATEDBY] FS
 
--n VALUE    creates the snapshot with the zfsprop "ZFSP_CREATEDBY" set to VALUE
+-n NAME     creates the snapshot with the zfsprop "$ZFSP_CREATEDBY" set to NAME
 -i          interactive. Prompts with name and confirmation.
 EOF
           )
     local INTERACTIVE=false
-    local createdby opt
+    local createdby
+    local opt OPTIND OPTARG
     while getopts ":in:h" opt; do
         case "$opt" in
             n) createdby="$OPTARG";;
@@ -50,20 +51,20 @@ EOF
     [ $# != 1 ] && echo "$usage" && return 1;
 
     local fs="$1"
-    local ts=$(date +%Y.%m.%d-%H:%M:%S) # YYYY.MM.DD-HH:MM:SS
+    local ts; ts=$(date +%Y.%m.%d-%H:%M:%S) # YYYY.MM.DD-HH:MM:SS
     local snapname="${fs}@${ts}"
 
     [ -z "$createdby" ] &&
         cmd="zfs snapshot -r \"$snapname\"" ||
             cmd="zfs snapshot -r -o \"${ZFSP_CREATEDBY}=${createdby}\" \"$snapname\""
 
-    y-or-n-p "Create snapshot with:\n\t$cmd\n" &&
+    y-or-n-p "Create snapshot with:\n\t$cmd ?\n" &&
         eval "$cmd" &&
         echo "$snapname"
 )
 
 zfs-list-if() {
-    local usage=$(cat <<EOF
+    local usage; usage=$(cat <<EOF
 Wrapper around zfs-list to only output data where PROP=VALUE
 
 Usage ${FUNCNAME[0]} PROP VALUE ZFS-LIST-ARGS
@@ -71,7 +72,7 @@ Usage ${FUNCNAME[0]} PROP VALUE ZFS-LIST-ARGS
 See man:zfs-list(8) for ZFS-LIST-ARGS.
 EOF
           )
-    # default props printed
+    # default props printed man:zfs-list(8)
     local props="name,used,available,referenced,mountpoint"
     local want_header=1
     local prop value unhandled_args
@@ -115,7 +116,7 @@ EOF
 
 zfs-backup() (
     set -e
-    local usage=$(cat <<EOF
+    local usage; usage=$(cat <<EOF
 Backup a filesystem to another filesystem using zfs-send and zfs-receive. This
 is most useful when the filesystems reside in different pools. This is done
 using incremental recursive snapshots that have the "$ZFSP_CREATEDBY" prop set
@@ -129,12 +130,16 @@ Usage: ${FUNCNAME[0]} [-i] SRC SINK
 -i     interactive. perhaps we don't want interactive
 
 TODO
-The variables ZFS_SEND_ARGS and ZFS_RECV_ARGS can be used to splice additional
+The variables _SEND_ARGS and ZFS_RECV_ARGS can be used to splice additional
 arguments into the send and receive commands.
 EOF
           )
-
+    # TODO trap SIGINT and also handle a failure to send | recv the same It
+    # should do: prompt? send/recv failed, do you want to destroy the snapshot
+    # created?
+    local src sink
     local INTERACTIVE=false
+    local opt OPTIND OPTARG
     while getopts ":ih" opt; do
         case $opt in
             i) INTERACTIVE=true;;
@@ -144,13 +149,15 @@ EOF
     done
     shift $((OPTIND - 1))
     [ $# != 2 ] && echo "$usage" && return 1;
-    local src sink
-    src="$1"; sink="$2"
+    src="$1"; sink="$2"         # TODO validate these are actually filesystems
 
     local newsnap
-    y-or-n-p "Create timestamped recursive backup of $src? " &&
-        newsnap=$(zfs-recursive-snap-ts -n "$ZFSP_CREATEDBY" "$src") ||
-            return 0
+    # TODO this probably shouldn't be a choice. It's required
+    if y-or-n-p "Create timestamped recursive backup of $src? "; then
+        newsnap=$(zfs-recursive-snap-ts -n "$ZFS_BACKUPID" "$src")
+    else
+        return 0
+    fi
 
     # snaps created by us sorted most to least recently created
     src_tab=$(zfs-list-if "$ZFSP_CREATEDBY" "$ZFS_BACKUPID" \
@@ -158,44 +165,49 @@ EOF
     sink_tab=$(zfs-list-if "$ZFSP_CREATEDBY" "$ZFS_BACKUPID" \
                              -H -t snapshot -S creation -o guid,name "$sink")
 
-    local -A src_rels
+    local -A src_rels sink_rels
     local -a src_guids shared_guids
     local guid name
     while IFS=$'\t' read -r guid name; do
+        [ -z "$guid" ] && continue
         src_rels["$guid"]="$name"
         src_guids+=("$guid")
     done <<< "$src_tab"
 
     while IFS=$'\t' read -r guid name; do
-        [ ! -z "${src_rels[$guid]}"] && shared_guids+=("$guid")
-    done <<< "sink_tab"
+        [ -z "$guid" ] && continue
+        [ -n "${src_rels[$guid]}" ] && shared_guids+=("$guid")
+        sink_rels["$guid"]="$name"
+    done <<< "$sink_tab"
 
     local cmd
     local latest_src_snap="${src_rels[$src_guids]}"
     if [ ${#shared_guids[@]} -gt 0 ]; then
         local latest_shared_snap="${src_rels[$shared_guids]}"
+        # TODO when printing, only inlcude the part after "@".
         echo "$src and $sink appear to share one or more snapshots. This is the most recent:
 $latest_shared_snap
 
 These snapshots were taken after it:" >&2
-        for ((i = 0; i < ${#src_guids[@]}; ++i)); do
-            local snap="${src_rels[${shared_guids[$i]}]}"
-            [ "$snap" == "$latest_shared_snap" ] && break
-            echo -e "\t$guid" >&2
+        for guid in "${src_guids[@]}"; do
+            [ "${src_rels[$guid]}" == "$latest_shared_snap" ] && break
+            echo -e "\t${src_rels[$guid]}" >&2
         done
 
-        cmd="zfs send -v -R -I $latest_shared_snap $latest_src_snap | zfs receive -v $sink"
-        y-or-n-p "Send incremental backup of snapshots from $src to $sink with:\n\t$cmd\n" &&
-            eval "$cmd"
-        # TODO. still need to clean up the old snapshots. Retain none but
-        # the latest for later incremental sending.
+        cmd="zfs send $ZFS_SEND_ARGS -R -I $latest_shared_snap $latest_src_snap | \
+zfs receive $ZFS_RECV_ARGS $sink"
+        y-or-n-p "Send incremental backup of snapshots from $src to $sink with:\n\t$cmd ?\n" &&
+            eval "$cmd" ||
+                return 0
+
+        local n; n=$(choose-num -n 1 "Cleanup all but the n most recent snapshots from src?")
+        # TODO cleanup. Should we ask N on src and M on sink?
+        declare -p n && return 0
     else
         echo "$src and $sink do not appear to share any snapshots." >&2
-        cmd="zfs send $ZFS_SEND_ARGS $latest_src_snap | zfs receive $ZFS_RECV_ARGS $sink"
-        y-or-n-p "Send full replication stream from $src to $sink? with:\n\t$cmd\n" &&
+        cmd="zfs send $ZFS_SEND_ARGS -R $latest_src_snap | zfs receive $ZFS_RECV_ARGS $sink"
+        y-or-n-p "Send full replication stream from $src to $sink with:\n\t$cmd ?\n" &&
             eval "$cmd"
-        # TODO. and then cleanup. Need to prompt. Cleanup all but latest on
-        # src? all but latest on sink?
     fi
 )
 
