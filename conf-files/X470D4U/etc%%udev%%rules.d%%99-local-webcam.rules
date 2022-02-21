@@ -1,0 +1,2 @@
+# SUBSYSTEM=="video4linux", SUBSYSTEMS=="usb"ATTRS{idVendor}=="046d", ATTRS{idProduct}=="08e5", PROGRAM="/usr/bin/v4l2-ctl --set-ctrl=focus_auto=0 --device /dev/%k"
+SUBSYSTEM=="video4linux", SUBSYSTEMS=="usb"ATTRS{idVendor}=="046d", ATTRS{idProduct}=="08e5", PROGRAM="/usr/bin/v4l2-ctl --set-ctrl=focus_automatic_continuous=0 --device /dev/%k"
