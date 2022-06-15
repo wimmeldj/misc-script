@@ -1,6 +1,9 @@
 #!/usr/bin/bash
 # -*- explicit-shell-file-name: /bin/bash; -*-
 
+# ZFS_SEND_ARGS="-v" ZFS_RECV_ARGS="-vF" zfs-backup -i ssd-raid0/vm-images hdd-mirror0/vm-images
+# for f in $(zfs list -t snap | grep "hdd-mirror0/vm-images" | head -n -2 | awk ' { print $1 } '); do zfs destroy -v "$f" ; done
+# for f in $(zfs list -t snap | grep "ssd-raid0/vm-images" | head -n -2 | awk ' { print $1 } '); do zfs destroy -v "$f"   ; done
 
 #### ===========================================================================
 ####                                    sourcing
@@ -8,7 +11,8 @@
 BASE_DIR=$(dirname "${BASH_SOURCE[0]}")
 DEPS=(
     awk
-     )
+)
+echo "${BASH_SOURCE[0]}"
 source "${BASE_DIR:-.}/util.sh"
 
 
@@ -152,11 +156,11 @@ EOF
     src="$1"; sink="$2"         # TODO validate these are actually filesystems
 
     local newsnap
-    # TODO this probably shouldn't be a choice. It's required
+    # TODO this probably shouldn't be a choice. It's required. Is it?
     if y-or-n-p "Create timestamped recursive backup of $src? "; then
         newsnap=$(zfs-recursive-snap-ts -n "$ZFS_BACKUPID" "$src")
-    else
-        return 0
+    # else
+    #     return 0
     fi
 
     # snaps created by us sorted most to least recently created
