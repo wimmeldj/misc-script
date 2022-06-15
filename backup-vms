@@ -1,0 +1,6 @@
+#!/usr/bin/bash
+# -*- explicit-shell-file-name: /bin/bash; -*-
+
+source zfs.sh
+
+ZFS_SEND_ARGS="-v" ZFS_RECV_ARGS="-vF" zfs-backup -i nvme-ssd-2tb/vm-images hdd-mirror0/vm-images
