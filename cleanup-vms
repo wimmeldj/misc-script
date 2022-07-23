@@ -1,0 +1,61 @@
+#!/usr/bin/bash
+# -*- explicit-shell-file-name: /bin/bash; -*-
+
+BASE_DIR=$(dirname "${BASH_SOURCE[0]}")
+source "${BASE_DIR:-.}/util.sh"
+
+usage=$(cat <<EOF
+Destroy old snapshots of vm pools. Currently hardcoded to keep the ten most
+recent.
+
+Usage ${BASH_SOURCE[0]} [backup]
+
+- specify "backup" to clean from hdd-mirror0/vm-images. When unspecified cleans
+  from nvme-ssd-2tb/vm-images. Done this way to avoid irreparable mistakes
+EOF
+     )
+
+# destroys all but 10 most recent
+destroy-snaps() {
+    local fs; fs="$1"
+    local args="v"
+    [ -v dryrun ] && args="${args}n" # n means dryrun
+
+    local all; all=$(zfs list -H -t snap "$fs" |
+                  awk '{ print $1 }')
+    local del; del=$(zfs list -H -t snap "$fs" |
+                         head -n -10 |
+                         awk '{ print $1 }')
+
+    [ -z "$del" ] && echo "Nothing to cleanup!" >&2 && exit 0
+
+    local snap;
+    while IFS=$'\n' read -r snap; do
+        zfs destroy "-$args" "$snap"
+    done <<< "$del"
+
+    if [ -v dryrun ]; then
+        echo >&2
+        echo "Destroying these snaps will leave you with the following on $fs:" >&2
+
+        comm -23 <(echo "$all") <(echo "$del") >&2
+    fi
+}
+
+
+INTERACTIVE=true
+
+[ -n "$1" ] && [ "$1" = "help" ] &&
+    echo "$usage" && exit 0;
+[ -n "$1" ] && [ ! "backup" = "${1,,}" ] &&
+    echo "$usage" && exit 1;
+
+if [ "${1,,}" = "backup" ]; then
+    dryrun= destroy-snaps hdd-mirror0/vm-images
+    y-or-n-p "Look good?" &&
+        destroy-snaps hdd-mirror0/vm-images
+else
+    dryrun= destroy-snaps nvme-ssd-2tb/vm-images
+    y-or-n-p "Look good?" &&
+        destroy-snaps nvme-ssd-2tb/vm-images
+fi
