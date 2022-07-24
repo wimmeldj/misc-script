@@ -1,4 +1,5 @@
 #!/usr/bin/bash
+# -*- explicit-shell-file-name: /bin/bash; -*-
 
 git-ssh-alias() {
     local usage; usage=$(cat <<EOF
