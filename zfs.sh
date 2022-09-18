@@ -1,10 +1,6 @@
 #!/usr/bin/bash
 # -*- explicit-shell-file-name: /bin/bash; -*-
 
-# ZFS_SEND_ARGS="-v" ZFS_RECV_ARGS="-vF" zfs-backup -i ssd-raid0/vm-images hdd-mirror0/vm-images
-# for f in $(zfs list -t snap | grep "hdd-mirror0/vm-images" | head -n -2 | awk ' { print $1 } '); do zfs destroy -v "$f" ; done
-# for f in $(zfs list -t snap | grep "ssd-raid0/vm-images" | head -n -2 | awk ' { print $1 } '); do zfs destroy -v "$f"   ; done
-
 #### ===========================================================================
 ####                                    sourcing
 
@@ -12,7 +8,6 @@ BASE_DIR=$(dirname "${BASH_SOURCE[0]}")
 DEPS=(
     awk
 )
-echo "${BASH_SOURCE[0]}"
 source "${BASE_DIR:-.}/util.sh"
 
 
