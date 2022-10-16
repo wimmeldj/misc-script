@@ -42,6 +42,10 @@ destroy-snaps() {
     fi
 }
 
+[ $UID -eq 0 ] || {
+    echo "must be run as super user"
+    exit 1
+}
 
 INTERACTIVE=true
 
