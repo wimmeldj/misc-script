@@ -27,36 +27,18 @@
 # See Man:ctags(1) for syntax to provide this list as a file if you'd rather
 #
 
+FULL_PATH=$(realpath "${BASH_SOURCE[0]}")
+BASE_DIR=$(dirname "$FULL_PATH")
+
 run() {
     # key : val
     # dir : extra args
     local -A targs
     local -a tags
 
-    # local pub="minkernel/published"
-    # local one="onecore"
-    # local ntos="minkernel/ntos"
-    # targs["$PWD/minkernel/published/ddk"]="--language-force=C"
-    # targs["$PWD/minkernel/published/base"]="--language-force=C"
-    # targs["$PWD/minkernel/published/sdk"]="--language-force=C"
-    # targs["$PWD/onecore/base/tools/dsf/src/inc"]=
-    # targs["$PWD/onecore/drivers/storage/port/raid"]=
-    # targs["$PWD/onecore/drivers/published"]="--language-force=C"
-    # targs["$PWD/minkernel/ntos/io"]=
-    # targs["$PWD/minkernel/ntos/rtl"]=
-    # targs["$PWD/sdktools/debuggers/exts/badev/extdll"]=
-    # targs["$PWD/minkernel/storage"]=
-    # targs["$PWD/minkernel/ntos/ke"]=
-    # targs["$PWD/minkernel/ntos/whea"]=
-    # targs["$PWD/minkernel/ntos/inc"]=
-    # targs["$PWD/minkernel/published/internal"]="--language-force=C"
-    targs["$PWD/urbit"]=
-    targs["$PWD/urcrypt"]=
-    targs["$PWD/ent"]=
-    targs["$PWD/hs"]=
-    # parsing the whole /usr/include causes lookup to take > 1 sec.
-    targs["/usr/include/uv.h"]="--language-force=C"
-    targs["/usr/include/uv"]=
+    targs["$BASE_DIR/sample/dir"]=
+    targs["$BASE_DIR/sample/dir/with/args"]="--language-force=C"
+    # add target directories here
 
     local dir args
     for dir in "${!targs[@]}"; do
@@ -72,7 +54,7 @@ run() {
         echo "tagging $dir" >&2
 
         local cmd="
-ctags -o $tagfile
+ctags -o $BASE_DIR/$tagfile
 -eR
 --kinds-C=+{label}{prototype}
 $args
@@ -83,7 +65,7 @@ $dir
     done
 
     # finally, create a single unified TAGS file with references to all
-    ctags -e -o TAGS "${tags[@]}" .
+    ctags -e -o "$BASE_DIR/TAGS" "${tags[@]}" .
 }
 
 
